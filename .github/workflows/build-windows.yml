@@ -1,0 +1,94 @@
+name: Build Windows package
+
+# Build a single-file Windows bCNC.exe using PyInstaller (onefile mode).
+# Trigger manually from the Actions tab ("Run workflow").
+on:
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: "Artifact retention (days)"
+        required: false
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            bCNC/requirements.txt
+            setup.py
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # numpy 2.x hits "cannot load module more than once per process"
+          # when frozen by PyInstaller (numpy changed its C-extension
+          # loading guard). Pin to 1.26.x which is frozen-bundle-safe.
+          pip install "numpy<2"
+          pip install "pyinstaller==6.11.0"
+          pip install -e .
+
+      - name: Generate Windows icon
+        shell: pwsh
+        run: |
+          python -c "from PIL import Image; Image.open('bCNC/icons/bCNC.gif').save('packaging/bCNC.ico', format='ICO', sizes=[(16,16),(32,32),(48,48),(64,64),(256,256)])"
+        continue-on-error: true
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/bCNC.spec --noconfirm --log-level WARN
+
+      - name: Smoke test (launch and exit)
+        shell: pwsh
+        run: |
+          # onefile: the exe self-extracts to %TEMP% on first launch (~10-15s
+          # for a ~60MB bundle), then Python+tkinter init runs. An import
+          # error makes the process exit early with a non-zero code AND the
+          # launcher writes bCNC.crash.log next to the exe (console=False
+          # hides stderr, so the log is how we diagnose failures).
+          $exe = "dist\bCNC.exe"
+          Remove-Item -Path "dist\bCNC.crash.log" -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 25
+          $crashed = $false
+          if ($p.HasExited) {
+            Write-Host "bCNC.exe exited early with code $($p.ExitCode)"
+            $crashed = $true
+          } else {
+            Stop-Process -Id $p.Id -Force
+            Write-Host "bCNC.exe was still running after 25s (imports OK)"
+          }
+          if (Test-Path "dist\bCNC.crash.log") {
+            Write-Host "::error::Crash log found:"
+            Get-Content "dist\bCNC.crash.log" | ForEach-Object { Write-Host $_ }
+            $crashed = $true
+          }
+          if ($crashed) { exit 1 }
+
+      - name: Rename exe
+        shell: pwsh
+        run: |
+          $ver = & python -c "import sys; sys.path.insert(0,'bCNC'); import Utils; print(Utils.__version__)"
+          if (-not $ver) { $ver = "dev" }
+          $short = & git rev-parse --short HEAD
+          $name = "bCNC-${ver}-windows-x64-${short}.exe"
+          Rename-Item "dist\bCNC.exe" $name
+          "EXE_NAME=${name}" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bCNC-windows-x64
+          path: dist/bCNC-*.exe
+          retention-days: ${{ github.event.inputs.retention_days || 30 }}
+          if-no-files-found: error
