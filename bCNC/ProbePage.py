@@ -40,6 +40,7 @@ from tkinter import (
     Scale,
     Spinbox,
     LabelFrame,
+    Text,
     messagebox,
 )
 
@@ -752,6 +753,156 @@ class ProbeFrame(CNCRibbon.PageFrame):
         lframe().grid_columnconfigure(3, weight=1)
 
         # ----------------------------------------------------------------
+        # Parallelism / Straightness
+        # ----------------------------------------------------------------
+        lframe = tkExtra.ExLabelFrame(
+            self, text=_("Parallelism"), foreground="DarkBlue")
+        lframe.pack(side=TOP, expand=YES, fill=X)
+
+        row, col = 0, 0
+        Label(lframe(), text=_("ProbeAxis:")).grid(
+            row=row, column=col, sticky=E)
+        col += 1
+        self.parallelAxis = tkExtra.Combobox(
+            lframe(), True, width=6,
+            background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelAxis.fill(["X", "Y", "Z"])
+        self.parallelAxis.grid(row=row, column=col, sticky=EW)
+        tkExtra.Balloon.set(
+            self.parallelAxis,
+            _("Axis the probe moves along. X/Y probe an edge; Z probes "
+              "the top face. Step axis is auto-set for X/Y (perpendicular) "
+              "and selectable for Z"))
+        self.addWidget(self.parallelAxis)
+
+        col += 1
+        Label(lframe(), text=_("Dir:")).grid(row=row, column=col, sticky=E)
+        col += 1
+        self.parallelDir = tkExtra.Combobox(
+            lframe(), True, width=6,
+            background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelDir.fill(["+", "-"])
+        self.parallelDir.grid(row=row, column=col, sticky=EW)
+        tkExtra.Balloon.set(
+            self.parallelDir,
+            _("Probe direction along the probe axis (+ or -). "
+              "Locked to '-' when probe axis is Z"))
+        self.addWidget(self.parallelDir)
+
+        # Row 1: Step axis (auto for X/Y, selectable for Z) + SafeZ
+        row += 1
+        col = 0
+        Label(lframe(), text=_("StepAxis:")).grid(
+            row=row, column=col, sticky=E)
+        col += 1
+        self.parallelStepAxis = tkExtra.Combobox(
+            lframe(), True, width=6,
+            background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelStepAxis.fill(["X", "Y"])
+        self.parallelStepAxis.grid(row=row, column=col, sticky=EW)
+        tkExtra.Balloon.set(
+            self.parallelStepAxis,
+            _("Axis to step between points. For X/Y probe axis it is "
+              "forced to the perpendicular axis (greyed); for Z probe you "
+              "choose X or Y"))
+        self.addWidget(self.parallelStepAxis)
+
+        col += 1
+        Label(lframe(), text=_("SafeZ:")).grid(
+            row=row, column=col, sticky=E)
+        col += 1
+        self.parallelSafeZ = tkExtra.FloatEntry(
+            lframe(), background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelSafeZ.grid(row=row, column=col, sticky=EW)
+        self.parallelSafeZ.set("5.0")
+        tkExtra.Balloon.set(
+            self.parallelSafeZ,
+            _("Z lift height. Used to clear the surface between points on "
+              "a Z probe, and as the final lift after an X/Y edge probe"))
+        self.addWidget(self.parallelSafeZ)
+
+        # Wire axis change after all parallel comboboxes exist; then sync
+        # disabled states for the default selection.
+        self.parallelAxis.command = self._onParallelAxisChange
+        self.parallelAxis.set("X")
+
+        row += 1
+        col = 0
+        Label(lframe(), text=_("ProbeDepth:")).grid(
+            row=row, column=col, sticky=E)
+        col += 1
+        self.parallelDepth = tkExtra.FloatEntry(
+            lframe(), background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelDepth.grid(row=row, column=col, sticky=EW)
+        tkExtra.Balloon.set(
+            self.parallelDepth,
+            _("Fast probe travel distance along the probe axis "
+              "(slow = D/5, retract = D/10)"))
+        self.addWidget(self.parallelDepth)
+
+        col += 1
+        Label(lframe(), text=_("EdgeLen:")).grid(
+            row=row, column=col, sticky=E)
+        col += 1
+        self.parallelLen = tkExtra.FloatEntry(
+            lframe(), background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelLen.grid(row=row, column=col, sticky=EW)
+        tkExtra.Balloon.set(
+            self.parallelLen,
+            _("Length to scan along the step axis"))
+        self.addWidget(self.parallelLen)
+
+        row += 1
+        col = 0
+        Label(lframe(), text=_("Points:")).grid(
+            row=row, column=col, sticky=E)
+        col += 1
+        self.parallelNpts = tkExtra.IntegerEntry(
+            lframe(), background=tkExtra.GLOBAL_CONTROL_BACKGROUND)
+        self.parallelNpts.grid(row=row, column=col, sticky=EW)
+        tkExtra.Balloon.set(
+            self.parallelNpts,
+            _("Number of probe points along the step axis (>= 2)"))
+        self.addWidget(self.parallelNpts)
+
+        # ---
+        row += 1
+        b = Button(
+            lframe(),
+            image=Utils.icons["target32"],
+            text=_("Probe"),
+            compound=TOP,
+            command=self.probeParallel,
+            width=48,
+            padx=5,
+            pady=0,
+        )
+        b.grid(row=row, column=0, columnspan=4, sticky=EW)
+        self.addWidget(b)
+        tkExtra.Balloon.set(
+            b,
+            _("Probe along the selected axis at multiple points to measure "
+              "parallelism/straightness. Reports the deviation of each "
+              "point from the first probe hit.\n"
+              "For X/Y probe axis, Z is held constant — position Z manually "
+              "before starting; Z lifts to SafeZ at the end.\n"
+              "For Z probe axis, position X/Y at the start of the scan; the "
+              "probe retracts by SafeZ between points."))
+
+        # Results text area
+        row += 1
+        self.parallelResult = Text(
+            lframe(), height=8, state=DISABLED,
+            font=("Courier", -12))
+        self.parallelResult.grid(
+            row=row, column=0, columnspan=4, sticky=EW)
+        self.addWidget(self.parallelResult)
+        self._parallelPlaceholder()
+
+        lframe().grid_columnconfigure(1, weight=1)
+        lframe().grid_columnconfigure(3, weight=1)
+
+        # ----------------------------------------------------------------
         # Align / Orient / Square ?
         # ----------------------------------------------------------------
         lframe = tkExtra.ExLabelFrame(
@@ -961,6 +1112,14 @@ class ProbeFrame(CNCRibbon.PageFrame):
         self.edgeWork.set(Utils.getFloat("Probe", "edgework"))
         self.edgeZLift.set(Utils.getFloat("Probe", "edgezlift"))
         self.edgeDepth.set(Utils.getFloat("Probe", "edgeprobe"))
+        # Parallelism
+        paraxis = Utils.getStr("Probe", "parallelaxis")
+        self.parallelAxis.set(paraxis if paraxis in ("X", "Y") else "X")
+        pardir = Utils.getStr("Probe", "paralleldir")
+        self.parallelDir.set(pardir if pardir in ("+", "-") else "+")
+        self.parallelDepth.set(Utils.getFloat("Probe", "paralleldepth"))
+        self.parallelLen.set(Utils.getFloat("Probe", "parallellen"))
+        self.parallelNpts.set(Utils.getInt("Probe", "parallelnpts", 5))
 
     # -----------------------------------------------------------------------
     def saveConfig(self):
@@ -975,6 +1134,12 @@ class ProbeFrame(CNCRibbon.PageFrame):
         Utils.setFloat("Probe", "edgework", self.edgeWork.get())
         Utils.setFloat("Probe", "edgezlift", self.edgeZLift.get())
         Utils.setFloat("Probe", "edgeprobe", self.edgeDepth.get())
+        # Parallelism
+        Utils.setStr("Probe", "parallelaxis", self.parallelAxis.get())
+        Utils.setStr("Probe", "paralleldir", self.parallelDir.get())
+        Utils.setFloat("Probe", "paralleldepth", self.parallelDepth.get())
+        Utils.setFloat("Probe", "parallellen", self.parallelLen.get())
+        Utils.setInt("Probe", "parallelnpts", self.parallelNpts.get())
 
     # -----------------------------------------------------------------------
     def updateProbe(self):
@@ -988,6 +1153,64 @@ class ProbeFrame(CNCRibbon.PageFrame):
         if self.probeautogotonext:
             self.probeautogotonext = False
             self.goto2Probe()
+
+    # -----------------------------------------------------------------------
+    def _parallelPlaceholder(self, npts=0):
+        self.parallelResult.config(state=NORMAL)
+        self.parallelResult.delete(1.0, END)
+        self.parallelResult.insert(
+            END,
+            " {:>3s}  {:>10s}  {:>10s}  {:>10s}\n".format(
+                "#", "Step-pos", "Probe-val", "dev"))
+        self.parallelResult.insert(END, "-" * 48 + "\n")
+        if npts > 0:
+            # Probe started: leave the data area empty for live results
+            self.parallelResult.config(state=DISABLED)
+            return
+        # No data yet: show placeholder centered below the header
+        self.parallelResult.tag_configure(
+            "nodata", font=("Courier", -16), justify=CENTER)
+        self.parallelResult.insert(END, "\n\n        No Data\n", "nodata")
+        self.parallelResult.config(state=DISABLED)
+
+    # -----------------------------------------------------------------------
+    def updateParallel(self):
+        idx = CNC.vars.get("parallel_idx", -1)
+        if idx < 0:
+            return
+        npts = getattr(self, "_parallelNpts", 0)
+        if npts < 1:
+            return
+        stepAxis = getattr(self, "_parallelStepAxis", "Y")
+        step = getattr(self, "_parallelStep", 0.0)
+        startM = getattr(self, "_parallelStartM", 0.0)
+        probeAxis = getattr(self, "_parallelProbeAxis", "X")
+        baseline = CNC.vars.get("pp0", 0.0)
+        maxDev = 0.0
+        self.parallelResult.config(state=NORMAL)
+        self.parallelResult.delete(1.0, END)
+        self.parallelResult.insert(
+            END,
+            " {:>3s}  {:>10s}  {:>10s}  {:>10s}\n".format(
+                "#", stepAxis + "-pos",
+                probeAxis + "-val", "dev"))
+        self.parallelResult.insert(END, "-" * 48 + "\n")
+        for i in range(min(idx + 1, npts)):
+            val = CNC.vars.get("pp" + str(i))
+            if val is None:
+                break
+            dev = val - baseline
+            pos = startM + i * step
+            if abs(dev) > abs(maxDev):
+                maxDev = dev
+            self.parallelResult.insert(
+                END,
+                " {:>3d}  {:10.3f}  {:10.4f}  {:+10.4f}\n".format(
+                    i + 1, pos, val, dev))
+        self.parallelResult.insert(END, "-" * 48 + "\n")
+        self.parallelResult.insert(
+            END, _("Max deviation: {:+.4f} mm\n").format(maxDev))
+        self.parallelResult.config(state=DISABLED)
 
     # -----------------------------------------------------------------------
     def warnMessage(self):
@@ -1239,6 +1462,145 @@ class ProbeFrame(CNCRibbon.PageFrame):
         # over SOLID workpiece material, so lowering back to probe height
         # there would crash into the top of the part. User can lower Z
         # manually once they confirm the position is clear.
+        self.app.run(lines=lines)
+
+    # -----------------------------------------------------------------------
+    # Sync StepAxis/Dir enabled state based on the selected probe axis.
+    # X/Y probe -> step axis forced perpendicular and greyed; dir selectable.
+    # Z probe   -> step axis selectable (X or Y); dir locked to '-'.
+    # -----------------------------------------------------------------------
+    def _onParallelAxisChange(self):
+        a = str(self.parallelAxis.get()).strip().upper()
+        if a in ("X", "Y"):
+            other = "Y" if a == "X" else "X"
+            self.parallelStepAxis.set(other)
+            self.parallelStepAxis.configure(state=DISABLED)
+            self.parallelDir.configure(state=NORMAL)
+        elif a == "Z":
+            self.parallelStepAxis.configure(state=NORMAL)
+            self.parallelDir.set("-")
+            self.parallelDir.configure(state=DISABLED)
+
+    # -----------------------------------------------------------------------
+    # Probe edge at multiple points to measure parallelism / straightness
+    # -----------------------------------------------------------------------
+    def probeParallel(self, event=None):
+        if ProbeCommonFrame.probeUpdate():
+            messagebox.showerror(
+                _("Probe Error"),
+                _("Invalid probe feed rate"),
+                parent=self.winfo_toplevel())
+            return
+        self.warnMessage()
+
+        # Re-sync disabled combobox states — a previous run's enable()
+        # may have reset them to NORMAL.
+        self._onParallelAxisChange()
+
+        probeAxis = str(self.parallelAxis.get()).strip().upper()
+        if probeAxis not in ("X", "Y", "Z"):
+            messagebox.showerror(
+                _("Parallelism Error"),
+                _("Probe axis must be X, Y or Z"),
+                parent=self.winfo_toplevel())
+            return
+
+        stepAxis = str(self.parallelStepAxis.get()).strip().upper()
+        if stepAxis not in ("X", "Y"):
+            messagebox.showerror(
+                _("Parallelism Error"),
+                _("Step axis must be X or Y"),
+                parent=self.winfo_toplevel())
+            return
+
+        if stepAxis == probeAxis:
+            messagebox.showerror(
+                _("Parallelism Error"),
+                _("Step axis must differ from probe axis"),
+                parent=self.winfo_toplevel())
+            return
+
+        direction = str(self.parallelDir.get()).strip()
+        if direction not in ("+", "-"):
+            messagebox.showerror(
+                _("Parallelism Error"),
+                _("Probe direction must be + or -"),
+                parent=self.winfo_toplevel())
+            return
+
+        try:
+            depth = abs(float(self.parallelDepth.get()))
+            edgeLen = abs(float(self.parallelLen.get()))
+            npts = int(self.parallelNpts.get())
+            safeZ = abs(float(self.parallelSafeZ.get()))
+        except ValueError:
+            messagebox.showerror(
+                _("Parallelism Error"),
+                _("Invalid numeric input"),
+                parent=self.winfo_toplevel())
+            return
+
+        if depth < 0.001 or edgeLen < 0.001 or npts < 2 or safeZ < 0.001:
+            messagebox.showerror(
+                _("Parallelism Error"),
+                _("Depth, EdgeLen and SafeZ must be > 0, points >= 2"),
+                parent=self.winfo_toplevel())
+            return
+
+        step = edgeLen / (npts - 1)
+        retraction = depth / 10.0
+        slowDepth = depth / 5.0
+        # Per-point retract along the probe axis: Z probing needs the full
+        # SafeZ to clear the surface between points; edge probing keeps a
+        # small constant backoff (Z stays constant for the edge scan).
+        lift = safeZ if probeAxis == "Z" else 2.0
+
+        prbcmd = str(CNC.vars["prbcmd"])
+        fast = CNC.vars["fastprbfeed"]
+        slow = CNC.vars["prbfeed"]
+        prbvar = "prb" + probeAxis.lower()
+
+        sgn = "+" if direction == "+" else "-"
+        rsgn = "-" if direction == "+" else "+"
+
+        self._parallelNpts = npts
+        self._parallelStepAxis = stepAxis
+        self._parallelStep = step
+        self._parallelStartM = CNC.vars.get("m" + stepAxis.lower(), 0.0)
+        self._parallelProbeAxis = probeAxis
+
+        lines = []
+        lines.append("g91")
+        for i in range(npts):
+            lines.append("{cmd} {ax}{sgn}{d:g} F{f:g}".format(
+                cmd=prbcmd, ax=probeAxis, sgn=sgn, d=depth, f=fast))
+            lines.append("%wait")
+            lines.append(
+                "%global parallel_idx, pp{i}; parallel_idx={i}; pp{i}={pv}".format(
+                    i=i, pv=prbvar))
+            lines.append("g0 {ax}{rsgn}{r:g}".format(
+                ax=probeAxis, rsgn=rsgn, r=retraction))
+            lines.append("{cmd} {ax}{sgn}{s:g} F{f:g}".format(
+                cmd=prbcmd, ax=probeAxis, sgn=sgn, s=slowDepth, f=slow))
+            lines.append("%wait")
+            lines.append(
+                "%global parallel_idx, pp{i}; parallel_idx={i}; pp{i}={pv}".format(
+                    i=i, pv=prbvar))
+            lines.append("%update parallel")
+            lines.append("g0 {ax}{rsgn}{b:g}".format(
+                ax=probeAxis, rsgn=rsgn, b=lift))
+            if i < npts - 1:
+                lines.append("g0 {sax}+{step:g}".format(
+                    sax=stepAxis, step=step))
+        # Final lift: for X/Y edge probing, lift Z to SafeZ so the probe is
+        # safely above the workpiece at the end. Z probing already retracted
+        # by SafeZ on the last point, so no extra lift is needed.
+        if probeAxis in ("X", "Y"):
+            lines.append("g0 Z+{z:g}".format(z=safeZ))
+        lines.append("g90")
+
+        self._parallelPlaceholder(npts)
+
         self.app.run(lines=lines)
 
     # -----------------------------------------------------------------------
@@ -2430,14 +2792,17 @@ class ToolFrame(CNCRibbon.PageFrame):
 
     # -----------------------------------------------------------------------
     def setProbeParams(self, dummy=None):
-        print("probe chg handler")
-        CNC.vars["toolchangex"] = float(self.changeX.get())
-        CNC.vars["toolchangey"] = float(self.changeY.get())
-        CNC.vars["toolchangez"] = float(self.changeZ.get())
-        CNC.vars["toolprobex"] = float(self.probeX.get())
-        CNC.vars["toolprobey"] = float(self.probeY.get())
-        CNC.vars["toolprobez"] = float(self.probeZ.get())
-        CNC.vars["tooldistance"] = float(self.probeDistance.get())
+        try:
+            CNC.vars["toolchangex"] = float(self.changeX.get())
+            CNC.vars["toolchangey"] = float(self.changeY.get())
+            CNC.vars["toolchangez"] = float(self.changeZ.get())
+            CNC.vars["toolprobex"] = float(self.probeX.get())
+            CNC.vars["toolprobey"] = float(self.probeY.get())
+            CNC.vars["toolprobez"] = float(self.probeZ.get())
+            CNC.vars["tooldistance"] = float(self.probeDistance.get())
+        except ValueError:
+            # Ignore partial input (e.g. "-", "+", empty) while typing
+            pass
 
     # -----------------------------------------------------------------------
     def getChange(self):

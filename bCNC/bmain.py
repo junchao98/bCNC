@@ -2800,6 +2800,8 @@ class Application(Tk, Sender):
                 Page.frames["Probe:Tool"].updateTool()
             elif self._update == "TLO":
                 Page.frames["ProbeCommon"].updateTlo()
+            elif self._update == "parallel":
+                Page.frames["Probe:Probe"].updateParallel()
             self._update = None
 
         if self.running:
