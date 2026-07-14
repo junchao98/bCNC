@@ -456,49 +456,49 @@ class Application(Tk, Sender):
         self.bind("<Prior>", self.control.moveZup)
         self.bind("<Next>", self.control.moveZdown)
 
-        if self._swapKeyboard == 1:
-            self.bind("<Right>", self.control.moveYup)
-            self.bind("<Left>", self.control.moveYdown)
-            self.bind("<Up>", self.control.moveXdown)
-            self.bind("<Down>", self.control.moveXup)
-            self.bind(".", self.abccontrol.moveAup)
-            self.bind(",", self.abccontrol.moveAdown)
-        elif self._swapKeyboard == -1:
-            self.bind("<Right>", self.control.moveYdown)
-            self.bind("<Left>", self.control.moveYup)
-            self.bind("<Up>", self.control.moveXup)
-            self.bind("<Down>", self.control.moveXdown)
-            self.bind(",", self.abccontrol.moveAup)
-            self.bind(".", self.abccontrol.moveAdown)
-        else:
-            self.bind("<Right>", self.control.moveXup)
-            self.bind("<Left>", self.control.moveXdown)
-            self.bind("<Up>", self.control.moveYup)
-            self.bind("<Down>", self.control.moveYdown)
-            self.bind(".", self.abccontrol.moveAup)
-            self.bind(",", self.abccontrol.moveAdown)
-
-        try:
-            self.bind("<KP_Prior>", self.control.moveZup)
-            self.bind("<KP_Next>", self.control.moveZdown)
-
-            if self._swapKeyboard == 1:
-                self.bind("<KP_Right>", self.control.moveYup)
-                self.bind("<KP_Left>", self.control.moveYdown)
-                self.bind("<KP_Up>", self.control.moveXdown)
-                self.bind("<KP_Down>", self.control.moveXup)
-            elif self._swapKeyboard == -1:
-                self.bind("<KP_Right>", self.control.moveYdown)
-                self.bind("<KP_Left>", self.control.moveYup)
-                self.bind("<KP_Up>", self.control.moveXup)
-                self.bind("<KP_Down>", self.control.moveXdown)
-            else:
-                self.bind("<KP_Right>", self.control.moveXup)
-                self.bind("<KP_Left>", self.control.moveXdown)
-                self.bind("<KP_Up>", self.control.moveYup)
-                self.bind("<KP_Down>", self.control.moveYdown)
-        except TclError:
-            pass
+        # if self._swapKeyboard == 1:
+        #     self.bind("<Right>", self.control.moveYup)
+        #     self.bind("<Left>", self.control.moveYdown)
+        #     self.bind("<Up>", self.control.moveXdown)
+        #     self.bind("<Down>", self.control.moveXup)
+        #     self.bind(".", self.abccontrol.moveAup)
+        #     self.bind(",", self.abccontrol.moveAdown)
+        # elif self._swapKeyboard == -1:
+        #     self.bind("<Right>", self.control.moveYdown)
+        #     self.bind("<Left>", self.control.moveYup)
+        #     self.bind("<Up>", self.control.moveXup)
+        #     self.bind("<Down>", self.control.moveXdown)
+        #     self.bind(",", self.abccontrol.moveAup)
+        #     self.bind(".", self.abccontrol.moveAdown)
+        # else:
+        #     self.bind("<Right>", self.control.moveXup)
+        #     self.bind("<Left>", self.control.moveXdown)
+        #     self.bind("<Up>", self.control.moveYup)
+        #     self.bind("<Down>", self.control.moveYdown)
+        #     self.bind(".", self.abccontrol.moveAup)
+        #     self.bind(",", self.abccontrol.moveAdown)
+        #
+        # try:
+        #     self.bind("<KP_Prior>", self.control.moveZup)
+        #     self.bind("<KP_Next>", self.control.moveZdown)
+        #
+        #     if self._swapKeyboard == 1:
+        #         self.bind("<KP_Right>", self.control.moveYup)
+        #         self.bind("<KP_Left>", self.control.moveYdown)
+        #         self.bind("<KP_Up>", self.control.moveXdown)
+        #         self.bind("<KP_Down>", self.control.moveXup)
+        #     elif self._swapKeyboard == -1:
+        #         self.bind("<KP_Right>", self.control.moveYdown)
+        #         self.bind("<KP_Left>", self.control.moveYup)
+        #         self.bind("<KP_Up>", self.control.moveXup)
+        #         self.bind("<KP_Down>", self.control.moveXdown)
+        #     else:
+        #         self.bind("<KP_Right>", self.control.moveXup)
+        #         self.bind("<KP_Left>", self.control.moveXdown)
+        #         self.bind("<KP_Up>", self.control.moveYup)
+        #         self.bind("<KP_Down>", self.control.moveYdown)
+        # except TclError:
+        #     pass
 
         self.bind("<Key-plus>", self.control.incStep)
         self.bind("<Key-equal>", self.control.incStep)
